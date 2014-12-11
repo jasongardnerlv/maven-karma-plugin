@@ -153,6 +153,12 @@ public class StartMojo extends AbstractMojo {
     private Boolean skipTests;
 
     /**
+     * Flag that when set to true indicates that the build should fail when there are 0 tests run.
+     */
+    @Parameter(property = "failOnZero", required = false, defaultValue = "false")
+    private Boolean failOnZero;
+
+    /**
      * Flag that when set to to true ensures that the Maven build does not fail when if the Karma tests fail. As
      * for the similar property on the maven-surefire-plugin: its use is not recommended, but quite convenient on occasion.
      */
@@ -264,17 +270,22 @@ public class StartMojo extends AbstractMojo {
     private boolean executeKarma(final Process karma) throws MojoExecutionException {
 
         BufferedReader karmaOutputReader = null;
+        boolean zeroTestsRun = false;
         try {
             karmaOutputReader = createKarmaOutputReader(karma);
 
             for (String line = karmaOutputReader.readLine(); line != null; line = karmaOutputReader.readLine()) {
+                if (line.contains("Executed 0 of 0")) {
+                    zeroTestsRun = true;
+                }
                 AnsiConsole.out.print(line);
                 AnsiConsole.out.println("\033[0m ");
             }
 
             resetAnsiConsole();
 
-            return (karma.waitFor() == 0);
+            int result = karma.waitFor();
+            return (result == 0 || (zeroTestsRun && !failOnZero));
 
         } catch (IOException e) {
             resetAnsiConsole();
